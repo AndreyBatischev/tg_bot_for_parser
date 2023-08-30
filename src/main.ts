@@ -1,6 +1,6 @@
 import { conf } from '../config.js';
 import { Scenes, Telegraf } from 'telegraf';
-import db, { User }  from './helpers/database.js'
+import db, { Ad, User }  from './helpers/database.js'
 import { pause } from './helpers/utils.js'
 import logger from './helpers/logger.js'
 import { Logger } from 'log4js';
@@ -26,6 +26,17 @@ const bot = new Telegraf<Scenes.SceneContext>(conf.botToken);
     console.log(usersIds);
     _logger.info('add user')
   })
+
+  function notifyUser(data: Ad): void {
+    const text = `Появилась новая вакансия ${data.title}, 
+    ссылка ${data.url}`;
+
+    for(const id of usersIds) {
+      bot.telegram.sendMessage(id, text)
+    }
+  }
+
+  db.updateAds(notifyUser)
 
   bot.launch();
 })()

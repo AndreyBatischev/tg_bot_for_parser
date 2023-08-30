@@ -6,7 +6,8 @@ import { conf } from '../../config.js';
 class DatabaseService {
   app: FirebaseApp
   db: Database
-  initSkip = true
+  initSkip = {}
+  unsubscribe = []
 
   constructor() {
     try{
@@ -44,21 +45,47 @@ class DatabaseService {
     })
   }
 
-  async updateAds(cd): Promise<void> {
-    onChildAdded(ref(this.db, 'ads'), (snapshot) => {
+  async updateAdsThread(key: string, cb): Promise<void> {
+      this.initSkip[key] = true
+      const unsubscribe =  onChildAdded(ref(this.db, 'ads/' + key), (snapshot) => {
       const data: Collection<Ad> = snapshot.val()
 
-  setTimeout(() => {
-    this.initSkip = false
-  }, 0);
+      setTimeout(() => {
+        this.initSkip[key] = false
+      }, 0);
 
-  if(this.initSkip) {
-    return
+      if(this.initSkip[key]) {
+        return
+      }
+      cb(data)
+    })
+    this.unsubscribe.push(unsubscribe)
   }
-  cd(data)
 
+  getAllAdsThread(): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+      this.unsubscribe.forEach(unsubscribe => unsubscribe())
+      get(child(ref(this.db), 'ads'))
+        .then((snapshot) => {
+          const val = snapshot.val()
+          return resolve(Object.keys(val))
+        })
+        .catch(err => reject(err))
     })
   }
+
+  async updateAds(cb): Promise<void> {
+   onChildAdded(ref(this.db, 'ads'), async () => {
+    const keys = await this.getAllAdsThread()
+
+    for(const key of keys){
+      console.log(key)
+      this.updateAdsThread(key, cb)
+      
+    }
+
+   })
+  }  
  
 }
 
